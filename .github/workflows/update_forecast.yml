@@ -2,9 +2,8 @@ name: Update Scotland Forecast JSON
 
 on:
   schedule:
-    # Her gün saat 00:00 UTC’de çalışır
-    - cron: '0 0 * * *'
-  workflow_dispatch:  # Manuel çalıştırma opsiyonu
+    - cron: '0 0 * * *'   # Her gün UTC 00:00
+  workflow_dispatch:       # Manuel çalıştırma
 
 jobs:
   build:
@@ -23,13 +22,14 @@ jobs:
       run: |
         pip install xarray cfgrib numpy
 
-    - name: Download GFS GRIB (0.25°)
+    - name: Download latest GFS 0.25° GRIB
       run: |
-        wget -O gfs.grib "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.YYYYMMDD/HH/atmos/gfs.tHHz.pgrb2.0p25.f000" || echo "Replace with real GFS URL"
+        TODAY=$(date -u +%Y%m%d)
+        HOUR=$(date -u +%H)
+        wget -O gfs.grib "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.${TODAY}/${HOUR}/atmos/gfs.t${HOUR}z.pgrb2.0p25.f000"
 
     - name: Generate JSON
-      run: |
-        python generate_forecast.py
+      run: python generate_forecast.py
 
     - name: Commit & Push
       run: |
