@@ -22,5 +22,5 @@ forecast = {
     "solarMW": solarMW
 }
 
-with open('scotland_forecast.json','w') as f:
+with open('data/scotland_forecast.json','w') as f:
     json.dump(forecast, f)
