@@ -3,29 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scotland Renewable Forecast Dashboard</title>
+<title>Scotland Renewable Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-  body { font-family: Arial, sans-serif; margin: 20px; }
-  h1 { text-align: center; }
-  canvas { max-width: 800px; margin: 0 auto; display: block; }
-  #insight { margin-top: 20px; text-align: center; font-size: 1.1em; }
+  body { font-family: Arial, sans-serif; margin: 20px; display: flex; flex-wrap: wrap; }
+  h1 { width: 100%; text-align: center; }
+  #map { width: 45%; height: 500px; }
+  #right-panel { width: 50%; margin-left: 5%; }
+  canvas { width: 100%; height: 300px; }
+  #insight { margin-top: 10px; font-size: 1.1em; }
+  select { margin-bottom: 10px; }
 </style>
 </head>
 <body>
 
 <h1>Scotland 5-Day Wind & Solar Forecast</h1>
 
-<canvas id="forecastChart"></canvas>
-<div id="insight"></div>
+<div id="map"></div>
+
+<div id="right-panel">
+  <select id="satelliteSelect">
+    <option value="MODIS_Terra_CorrectedReflectance_TrueColor">MODIS True Color</option>
+    <option value="VIIRS_SNPP_CorrectedReflectance_TrueColor">VIIRS True Color</option>
+    <option value="VIIRS_SNPP_Brightness_Temp_Night">VIIRS Night</option>
+  </select>
+
+  <canvas id="forecastChart"></canvas>
+  <div id="insight"></div>
+</div>
 
 <script>
-// JSON verisini fetch et
 async function loadForecast() {
   const response = await fetch('data/scotland_forecast.json');
   const data = await response.json();
-  
-  // Grafik oluştur
+
+  // Chart
   const ctx = document.getElementById('forecastChart').getContext('2d');
   new Chart(ctx, {
     type: 'line',
@@ -36,23 +50,40 @@ async function loadForecast() {
         { label: 'Solar (MW)', data: data.solarMW, borderColor: 'orange', fill: false }
       ]
     },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: 'top' } }
-    }
+    options: { responsive: true, plugins: { legend: { position: 'top' } } }
   });
 
-  // Insight kutusu
+  // Insight
   const maxWind = Math.max(...data.windMW);
-  const insightDiv = document.getElementById('insight');
-  insightDiv.textContent = maxWind < 1000 ? 
+  document.getElementById('insight').textContent = maxWind < 1000 ? 
     "⚠️ Low wind expected → possible supply squeeze." : 
     "✅ Wind levels normal, no immediate risk.";
 }
 
+// Map
+const map = L.map('map').setView([56.5, -3], 7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+// NASA GIBS Satellite Layer
+let satelliteLayer;
+const dateStr = new Date().toISOString().slice(0,10); // yyyy-mm-dd
+function updateSatelliteLayer(layerName) {
+  if(satelliteLayer) map.removeLayer(satelliteLayer);
+  satelliteLayer = L.tileLayer(
+    `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layerName}/default/${dateStr}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
+    { attribution: 'NASA GIBS', minZoom: 6, maxZoom: 10, bounds: [[54,-5],[60,-0.5]] }
+  ).addTo(map);
+}
+
+// Dropdown ile değişim
+document.getElementById('satelliteSelect').addEventListener('change', (e) => {
+  updateSatelliteLayer(e.target.value);
+});
+
+// Başlangıç katmanı
+updateSatelliteLayer(document.getElementById('satelliteSelect').value);
 loadForecast();
 </script>
 
 </body>
 </html>
-
