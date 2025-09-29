@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scotland Renewable Forecast Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  h1 { text-align: center; }
+  canvas { max-width: 800px; margin: 0 auto; display: block; }
+  #insight { margin-top: 20px; text-align: center; font-size: 1.1em; }
+</style>
+</head>
+<body>
+
+<h1>Scotland 5-Day Wind & Solar Forecast</h1>
+
+<canvas id="forecastChart"></canvas>
+<div id="insight"></div>
+
+<script>
+// JSON verisini fetch et
+async function loadForecast() {
+  const response = await fetch('data/scotland_forecast.json');
+  const data = await response.json();
+  
+  // Grafik oluştur
+  const ctx = document.getElementById('forecastChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.days,
+      datasets: [
+        { label: 'Wind (MW)', data: data.windMW, borderColor: 'blue', fill: false },
+        { label: 'Solar (MW)', data: data.solarMW, borderColor: 'orange', fill: false }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top' } }
+    }
+  });
+
+  // Insight kutusu
+  const maxWind = Math.max(...data.windMW);
+  const insightDiv = document.getElementById('insight');
+  insightDiv.textContent = maxWind < 1000 ? 
+    "⚠️ Low wind expected → possible supply squeeze." : 
+    "✅ Wind levels normal, no immediate risk.";
+}
+
+loadForecast();
+</script>
+
+</body>
+</html>
+
