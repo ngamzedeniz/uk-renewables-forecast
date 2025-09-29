@@ -3,8 +3,8 @@ import xarray as xr
 import json
 import numpy as np
 
-# GFS 0.25° grib dosyasını aç
-ds = xr.open_dataset('gfs_0p25_20250930_00.grib', engine='cfgrib')
+# GRIB dosyasını aç
+ds = xr.open_dataset('gfs.grib', engine='cfgrib')
 
 # İskoçya koordinatları
 lat_slice = slice(55.5, 58)
