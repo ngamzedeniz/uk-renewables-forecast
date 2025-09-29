@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <title>İskoçya Yenilenebilir Enerji Tahmini</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; margin:0; padding:20px; background:#f5f7fa; color:#111827; }
+    h1 { color:#2563eb; text-align:center; margin-bottom:20px; }
+    .card { background:#fff; border-radius:1rem; padding:20px; margin-bottom:20px; box-shadow:0 4px 12px rgba(0,0,0,0.05); }
+    #map { height:400px; border-radius:1rem; }
+    canvas { width:100% !important; height:auto !important; }
+    .insight { padding:15px; border-radius:.75rem; font-weight:500; text-align:center; }
+    .insight.good { background:#dcfce7; color:#166534; }
+    .insight.bad { background:#fee2e2; color:#991b1b; }
+    .container { display:flex; flex-direction:column; gap:20px; }
+    @media(min-width:900px){ .container { flex-direction:row; } .map-card,.chart-card { flex:1; } }
+  </style>
+</head>
+<body>
+
+<h1>🌤 İskoçya Yenilenebilir Enerji Tahmini</h1>
+<div class="container">
+  <div class="card map-card" id="map"></div>
+  <div class="card chart-card">
+    <canvas id="forecastChart"></canvas>
+    <div id="insightBox" class="insight"></div>
+  </div>
+</div>
+
+<footer style="text-align:center; color:#6b7280; margin-top:20px;">
+  Veri kaynağı: GFS (NOAA), National Grid ESO kapasite varsayımları
+</footer>
+
+<script>
+// Harita
+const map = L.map('map').setView([56.5, -4], 7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+// Dummy rüzgar ve güneş enerjisi verisi
+const forecastData = {
+  days: ['Gün 1', 'Gün 2', 'Gün 3', 'Gün 4', 'Gün 5'],
+  windMW: [1500, 1200, 900, 1600, 1300],
+  solarMW: [300, 400, 200, 500, 450]
+};
+
+// Grafik
+const ctx = document.getElementById('forecastChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: forecastData.days,
+    datasets: [
+      {
+        label: 'Rüzgar (MW)',
+        data: forecastData.windMW,
+        borderColor: 'blue',
+        backgroundColor: 'rgba(37,99,235,0.1)',
+        fill: true,
+        tension: 0.3
+      },
+      {
+        label: 'Güneş (MW)',
+        data: forecastData.solarMW,
+        borderColor: 'orange',
+        backgroundColor: 'rgba(245,158,11,0.1)',
+        fill: true,
+        tension: 0.3
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'bottom'
+      }
+    },
+    scales: {
+      y: {
+        title: {
+          display: true,
+          text: 'MW'
+        }
+      },
+      x: {
+        title: {
+          display: true,
+          text: 'Tahmin Süresi (5 gün)'
+        }
+      }
+    }
+  }
+});
+
+// Insight kutusu
+const insightBox = document.getElementById('insightBox');
+const windAvg = forecastData.windMW.reduce((a, b) => a + b, 0) / forecastData.windMW.length;
+const solarAvg = forecastData.solarMW.reduce((a, b) => a + b, 0) / forecastData.solarMW.length;
+if (windAvg < 700 || solarAvg < 300) {
+  insightBox.textContent = '⚠️ Düşük yenilenebilir enerji üretimi bekleniyor.';
+  insightBox.classList.add('bad');
+} else {
+  insightBox.textContent = '✅ Yenilenebilir enerji arzı stabil.';
+  insightBox.classList.add('good');
+}
+</script>
+
+</body>
+</html>
