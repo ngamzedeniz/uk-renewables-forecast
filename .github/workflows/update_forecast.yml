@@ -1,0 +1,40 @@
+name: Update Scotland Forecast JSON
+
+on:
+  schedule:
+    # Her gün saat 00:00 UTC’de çalışır
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # Manuel çalıştırma opsiyonu
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install xarray cfgrib numpy
+
+    - name: Download GFS GRIB (0.25°)
+      run: |
+        wget -O gfs.grib "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.YYYYMMDD/HH/atmos/gfs.tHHz.pgrb2.0p25.f000" || echo "Replace with real GFS URL"
+
+    - name: Generate JSON
+      run: |
+        python generate_forecast.py
+
+    - name: Commit & Push
+      run: |
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
+        git add data/scotland_forecast.json
+        git commit -m "Update Scotland forecast JSON [skip ci]" || echo "No changes to commit"
+        git push
