@@ -1,13 +1,20 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>İskoçya Yenilenebilir Enerji Tahmini</title>
+  <title>Scotland Renewables Forecast</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <!-- Google Font -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <style>
     body { font-family: 'Inter', sans-serif; margin:0; padding:20px; background:#f5f7fa; color:#111827; }
     h1 { color:#2563eb; text-align:center; margin-bottom:20px; }
@@ -23,7 +30,8 @@
 </head>
 <body>
 
-<h1>🌤 İskoçya Yenilenebilir Enerji Tahmini</h1>
+<h1>🌤 Scotland Renewables Forecast</h1>
+
 <div class="container">
   <div class="card map-card" id="map"></div>
   <div class="card chart-card">
@@ -33,83 +41,92 @@
 </div>
 
 <footer style="text-align:center; color:#6b7280; margin-top:20px;">
-  Veri kaynağı: GFS (NOAA), National Grid ESO kapasite varsayımları
+  Data source: GFS (NOAA), National Grid ESO capacity assumptions
 </footer>
 
 <script>
-// Harita
+// ----- MAP -----
 const map = L.map('map').setView([56.5, -4], 7);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-// Dummy rüzgar ve güneş enerjisi verisi
-const forecastData = {
-  days: ['Gün 1', 'Gün 2', 'Gün 3', 'Gün 4', 'Gün 5'],
-  windMW: [1500, 1200, 900, 1600, 1300],
-  solarMW: [300, 400, 200, 500, 450]
-};
+// Example renewable sites
+const sites = [
+  {name:"Wind Farm A", lat:56.2, lon:-3.3, type:"wind"},
+  {name:"Wind Farm B", lat:55.9, lon:-3.0, type:"wind"},
+  {name:"Solar Farm C", lat:56.0, lon:-3.5, type:"solar"},
+  {name:"Solar Farm D", lat:55.95, lon:-3.2, type:"solar"}
+];
 
-// Grafik
-const ctx = document.getElementById('forecastChart').getContext('2d');
-new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: forecastData.days,
-    datasets: [
-      {
-        label: 'Rüzgar (MW)',
-        data: forecastData.windMW,
-        borderColor: 'blue',
-        backgroundColor: 'rgba(37,99,235,0.1)',
-        fill: true,
-        tension: 0.3
-      },
-      {
-        label: 'Güneş (MW)',
-        data: forecastData.solarMW,
-        borderColor: 'orange',
-        backgroundColor: 'rgba(245,158,11,0.1)',
-        fill: true,
-        tension: 0.3
-      }
-    ]
-  },
-  options: {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: 'bottom'
-      }
-    },
-    scales: {
-      y: {
-        title: {
-          display: true,
-          text: 'MW'
-        }
-      },
-      x: {
-        title: {
-          display: true,
-          text: 'Tahmin Süresi (5 gün)'
-        }
-      }
-    }
-  }
+sites.forEach(site=>{
+  const color = site.type==="wind"?"blue":"orange";
+  L.circleMarker([site.lat, site.lon],{
+    radius:8, color:color, fillColor:color, fillOpacity:0.7
+  }).addTo(map).bindPopup(`<b>${site.name}</b><br>${site.type} farm`);
 });
 
-// Insight kutusu
-const insightBox = document.getElementById('insightBox');
-const windAvg = forecastData.windMW.reduce((a, b) => a + b, 0) / forecastData.windMW.length;
-const solarAvg = forecastData.solarMW.reduce((a, b) => a + b, 0) / forecastData.solarMW.length;
-if (windAvg < 700 || solarAvg < 300) {
-  insightBox.textContent = '⚠️ Düşük yenilenebilir enerji üretimi bekleniyor.';
-  insightBox.classList.add('bad');
-} else {
-  insightBox.textContent = '✅ Yenilenebilir enerji arzı stabil.';
-  insightBox.classList.add('good');
+// ----- FORECAST DATA -----
+async function fetchForecast(){
+  // Replace with real GFS API call
+  return {
+    days: ['Day 1','Day 2','Day 3','Day 4','Day 5'],
+    windMW: [1500, 1200, 900, 1600, 1300],
+    solarMW: [300, 400, 200, 500, 450]
+  };
 }
+
+// ----- CHART -----
+async function renderChart(){
+  const {days, windMW, solarMW} = await fetchForecast();
+  const ctx = document.getElementById('forecastChart').getContext('2d');
+  new Chart(ctx, {
+    type:'line',
+    data:{
+      labels:days,
+      datasets:[
+        {
+          label:'Wind (MW)',
+          data:windMW,
+          borderColor:'blue',
+          backgroundColor:'rgba(37,99,235,0.1)',
+          fill:true,
+          tension:0.3
+        },
+        {
+          label:'Solar (MW)',
+          data:solarMW,
+          borderColor:'orange',
+          backgroundColor:'rgba(245,158,11,0.1)',
+          fill:true,
+          tension:0.3
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{position:'bottom'}},
+      scales:{
+        y:{title:{display:true,text:'MW'}},
+        x:{title:{display:true,text:'Forecast Horizon (5 days)'}}
+      }
+    }
+  });
+
+  // Insight box
+  const insightBox = document.getElementById('insightBox');
+  const windAvg = windMW.reduce((a,b)=>a+b,0)/windMW.length;
+  const solarAvg = solarMW.reduce((a,b)=>a+b,0)/solarMW.length;
+  if(windAvg<700 || solarAvg<300){
+    insightBox.textContent='⚠️ Low renewable energy production expected.';
+    insightBox.classList.add('bad');
+  } else {
+    insightBox.textContent='✅ Renewable energy supply is stable.';
+    insightBox.classList.add('good');
+  }
+}
+
+renderChart();
 </script>
 
 </body>
