@@ -1,132 +1,104 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Scotland Renewables Forecast</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-
-  <!-- Google Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <!-- Chart.js -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scotland Renewable Forecast Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
   <style>
-    body { font-family: 'Inter', sans-serif; margin:0; padding:20px; background:#f5f7fa; color:#111827; }
-    h1 { color:#2563eb; text-align:center; margin-bottom:20px; }
-    .card { background:#fff; border-radius:1rem; padding:20px; margin-bottom:20px; box-shadow:0 4px 12px rgba(0,0,0,0.05); }
-    #map { height:400px; border-radius:1rem; }
-    canvas { width:100% !important; height:auto !important; }
-    .insight { padding:15px; border-radius:.75rem; font-weight:500; text-align:center; }
-    .insight.good { background:#dcfce7; color:#166534; }
-    .insight.bad { background:#fee2e2; color:#991b1b; }
-    .container { display:flex; flex-direction:column; gap:20px; }
-    @media(min-width:900px){ .container { flex-direction:row; } .map-card,.chart-card { flex:1; } }
+    body { font-family: Arial, sans-serif; margin: 0; display: flex; flex-direction: row; height: 100vh; }
+    #map { width: 50%; height: 100%; }
+    #right { width: 50%; padding: 20px; display: flex; flex-direction: column; }
+    #right select { margin-bottom: 10px; padding: 5px; }
+    canvas { flex: 1; }
+    #insight { margin-top: 10px; font-weight: bold; }
   </style>
 </head>
 <body>
 
-<h1>🌤 Scotland Renewables Forecast</h1>
-
-<div class="container">
-  <div class="card map-card" id="map"></div>
-  <div class="card chart-card">
+  <div id="map"></div>
+  <div id="right">
+    <h2>Live Satellite & Solar Forecast</h2>
+    <label for="satSelect">Choose satellite layer:</label>
+    <select id="satSelect">
+      <option value="MODIS_Terra_CorrectedReflectance_TrueColor">MODIS True Color</option>
+      <option value="VIIRS_SNPP_CorrectedReflectance_TrueColor">VIIRS True Color</option>
+      <option value="MODIS_Terra_CorrectedReflectance_Bands721">MODIS False Color (Bands 7-2-1)</option>
+    </select>
     <canvas id="forecastChart"></canvas>
-    <div id="insightBox" class="insight"></div>
+    <div id="insight"></div>
   </div>
-</div>
-
-<footer style="text-align:center; color:#6b7280; margin-top:20px;">
-  Data source: GFS (NOAA), National Grid ESO capacity assumptions
-</footer>
 
 <script>
-// ----- MAP -----
-const map = L.map('map').setView([56.5, -4], 7);
+// Initialize map
+const map = L.map('map').setView([56.5, -3], 6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-// Example renewable sites
-const sites = [
-  {name:"Wind Farm A", lat:56.2, lon:-3.3, type:"wind"},
-  {name:"Wind Farm B", lat:55.9, lon:-3.0, type:"wind"},
-  {name:"Solar Farm C", lat:56.0, lon:-3.5, type:"solar"},
-  {name:"Solar Farm D", lat:55.95, lon:-3.2, type:"solar"}
-];
+let satLayer;
+function updateSat(layerName) {
+  if (satLayer) {
+    map.removeLayer(satLayer);
+  }
+  const dateStr = new Date().toISOString().slice(0,10);
+  satLayer = L.tileLayer(
+    `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layerName}/default/${dateStr}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
+    { attribution: 'NASA GIBS' }
+  );
+  satLayer.addTo(map);
+}
+document.getElementById('satSelect').onchange = (e) => {
+  updateSat(e.target.value);
+};
+// Default satellite layer
+updateSat(document.getElementById('satSelect').value);
 
-sites.forEach(site=>{
-  const color = site.type==="wind"?"blue":"orange";
-  L.circleMarker([site.lat, site.lon],{
-    radius:8, color:color, fillColor:color, fillOpacity:0.7
-  }).addTo(map).bindPopup(`<b>${site.name}</b><br>${site.type} farm`);
-});
-
-// ----- FORECAST DATA -----
-async function fetchForecast(){
-  // Replace with real GFS API call
-  return {
-    days: ['Day 1','Day 2','Day 3','Day 4','Day 5'],
-    windMW: [1500, 1200, 900, 1600, 1300],
-    solarMW: [300, 400, 200, 500, 450]
-  };
+// Fetch solar radiation data from Open-Meteo
+async function fetchSatelliteRadiation(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=shortwave_radiation&forecast_days=1`;
+  const resp = await fetch(url);
+  return resp.json();
 }
 
-// ----- CHART -----
-async function renderChart(){
-  const {days, windMW, solarMW} = await fetchForecast();
+// Plot chart with Chart.js
+async function loadForecast() {
+  const lat = 56.5, lon = -3;
+  const satData = await fetchSatelliteRadiation(lat, lon);
+  const hours = satData.hourly.time.map(t => t.slice(11,16)); // only HH:MM
+  const rad = satData.hourly.shortwave_radiation;
+
   const ctx = document.getElementById('forecastChart').getContext('2d');
   new Chart(ctx, {
-    type:'line',
-    data:{
-      labels:days,
-      datasets:[
-        {
-          label:'Wind (MW)',
-          data:windMW,
-          borderColor:'blue',
-          backgroundColor:'rgba(37,99,235,0.1)',
-          fill:true,
-          tension:0.3
-        },
-        {
-          label:'Solar (MW)',
-          data:solarMW,
-          borderColor:'orange',
-          backgroundColor:'rgba(245,158,11,0.1)',
-          fill:true,
-          tension:0.3
-        }
-      ]
+    type: 'line',
+    data: {
+      labels: hours,
+      datasets: [{
+        label: 'Solar Radiation (W/m²)',
+        data: rad,
+        borderColor: 'orange',
+        backgroundColor: 'rgba(255,165,0,0.3)',
+        fill: true
+      }]
     },
-    options:{
-      responsive:true,
-      plugins:{legend:{position:'bottom'}},
-      scales:{
-        y:{title:{display:true,text:'MW'}},
-        x:{title:{display:true,text:'Forecast Horizon (5 days)'}}
+    options: {
+      responsive: true,
+      scales: {
+        x: { title: { display: true, text: 'Hour (UTC)' } },
+        y: { title: { display: true, text: 'Radiation (W/m²)' } }
       }
     }
   });
 
-  // Insight box
-  const insightBox = document.getElementById('insightBox');
-  const windAvg = windMW.reduce((a,b)=>a+b,0)/windMW.length;
-  const solarAvg = solarMW.reduce((a,b)=>a+b,0)/solarMW.length;
-  if(windAvg<700 || solarAvg<300){
-    insightBox.textContent='⚠️ Low renewable energy production expected.';
-    insightBox.classList.add('bad');
-  } else {
-    insightBox.textContent='✅ Renewable energy supply is stable.';
-    insightBox.classList.add('good');
-  }
+  // Simple insight
+  const avgRad = rad.reduce((a,b)=>a+b,0) / rad.length;
+  document.getElementById('insight').innerText =
+    avgRad < 100 ? "⚠️ Low solar radiation expected → potential supply risk" :
+    "✅ Normal solar conditions";
 }
-
-renderChart();
+loadForecast();
 </script>
 
 </body>
