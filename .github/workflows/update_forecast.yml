@@ -2,26 +2,26 @@ name: Update Forecast
 
 on:
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '0 0 * * *'  # Her gün UTC 00:00
   workflow_dispatch:
 
 jobs:
-  update:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: '3.11'
       - name: Install dependencies
-        run: pip install requests cfgrib xarray numpy
-      - name: Run forecast generator
+        run: pip install requests xarray cfgrib numpy pandas
+      - name: Generate Forecast JSON
         run: python generate_forecast.py
-      - name: Commit updated JSONs
+      - name: Commit and Push JSON
         run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "actions@github.com"
-          git add *.json
-          git commit -m "Update forecast JSONs"
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/scotland_forecast.json data/price_volume.json
+          git commit -m "Update forecast JSON"
           git push
