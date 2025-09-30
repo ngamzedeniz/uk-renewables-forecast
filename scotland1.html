@@ -13,14 +13,14 @@
     #right { width: 50%; padding: 20px; display: flex; flex-direction: column; }
     #right select { margin-bottom: 10px; padding: 5px; }
     canvas { flex: 1; }
-    #insight { margin-top: 10px; font-weight: bold; }
+    #insight { margin-top: 15px; font-weight: bold; }
   </style>
 </head>
 <body>
 
   <div id="map"></div>
   <div id="right">
-    <h2>Live Satellite & Solar Forecast</h2>
+    <h2>Scotland: Solar & Wind Forecast</h2>
     <label for="satSelect">Choose satellite layer:</label>
     <select id="satSelect">
       <option value="MODIS_Terra_CorrectedReflectance_TrueColor">MODIS True Color</option>
@@ -32,7 +32,7 @@
   </div>
 
 <script>
-// Initialize map
+// === Map ===
 const map = L.map('map').setView([56.5, -3], 6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
@@ -40,9 +40,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 let satLayer;
 function updateSat(layerName) {
-  if (satLayer) {
-    map.removeLayer(satLayer);
-  }
+  if (satLayer) map.removeLayer(satLayer);
   const dateStr = new Date().toISOString().slice(0,10);
   satLayer = L.tileLayer(
     `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layerName}/default/${dateStr}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
@@ -50,54 +48,75 @@ function updateSat(layerName) {
   );
   satLayer.addTo(map);
 }
-document.getElementById('satSelect').onchange = (e) => {
-  updateSat(e.target.value);
-};
-// Default satellite layer
+document.getElementById('satSelect').onchange = (e) => updateSat(e.target.value);
 updateSat(document.getElementById('satSelect').value);
 
-// Fetch solar radiation data from Open-Meteo
-async function fetchSatelliteRadiation(lat, lon) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=shortwave_radiation&forecast_days=1`;
+// === Fetch Data ===
+async function fetchForecast(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=shortwave_radiation,wind_speed_10m&forecast_days=1`;
   const resp = await fetch(url);
   return resp.json();
 }
 
-// Plot chart with Chart.js
+// === Chart + Insight ===
 async function loadForecast() {
   const lat = 56.5, lon = -3;
-  const satData = await fetchSatelliteRadiation(lat, lon);
-  const hours = satData.hourly.time.map(t => t.slice(11,16)); // only HH:MM
-  const rad = satData.hourly.shortwave_radiation;
+  const data = await fetchForecast(lat, lon);
+
+  const hours = data.hourly.time.map(t => t.slice(11,16));
+  const radiation = data.hourly.shortwave_radiation;
+  const wind = data.hourly.wind_speed_10m;
 
   const ctx = document.getElementById('forecastChart').getContext('2d');
   new Chart(ctx, {
     type: 'line',
     data: {
       labels: hours,
-      datasets: [{
-        label: 'Solar Radiation (W/m²)',
-        data: rad,
-        borderColor: 'orange',
-        backgroundColor: 'rgba(255,165,0,0.3)',
-        fill: true
-      }]
+      datasets: [
+        {
+          label: 'Solar Radiation (W/m²)',
+          data: radiation,
+          borderColor: 'orange',
+          backgroundColor: 'rgba(255,165,0,0.2)',
+          yAxisID: 'y1',
+          fill: true
+        },
+        {
+          label: 'Wind Speed 10m (m/s)',
+          data: wind,
+          borderColor: 'blue',
+          backgroundColor: 'rgba(0,0,255,0.1)',
+          yAxisID: 'y2',
+          fill: true
+        }
+      ]
     },
     options: {
       responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      stacked: false,
       scales: {
-        x: { title: { display: true, text: 'Hour (UTC)' } },
-        y: { title: { display: true, text: 'Radiation (W/m²)' } }
+        y1: { type: 'linear', position: 'left', title:{display:true,text:'Radiation (W/m²)'} },
+        y2: { type: 'linear', position: 'right', title:{display:true,text:'Wind (m/s)'} }
       }
     }
   });
 
-  // Simple insight
-  const avgRad = rad.reduce((a,b)=>a+b,0) / rad.length;
-  document.getElementById('insight').innerText =
-    avgRad < 100 ? "⚠️ Low solar radiation expected → potential supply risk" :
-    "✅ Normal solar conditions";
+  // === Simple weather-style insight ===
+  const avgRad = radiation.reduce((a,b)=>a+b,0)/radiation.length;
+  const avgWind = wind.reduce((a,b)=>a+b,0)/wind.length;
+
+  let insight = "";
+  if (avgRad > 200 && avgWind < 3) {
+    insight = "☀ High pressure pattern: strong sunshine, weak winds.";
+  } else if (avgRad < 100 && avgWind > 6) {
+    insight = "🌬 Likely low pressure: windy, cloudy with poor solar output.";
+  } else {
+    insight = "⚖ Mixed conditions: balanced solar and wind contribution.";
+  }
+  document.getElementById('insight').innerText = insight;
 }
+
 loadForecast();
 </script>
 
