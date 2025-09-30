@@ -3,12 +3,10 @@ name: Update Forecast
 on:
   workflow_dispatch:
 
-permissions:
-  contents: write  # Repo'ya push izni
-
 jobs:
-  update_forecast:
+  update-forecast:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -21,27 +19,32 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install xarray cfgrib requests
+          pip install xarray cfgrib requests pandas
 
-      - name: Download latest GFS GRIB
+      - name: Download latest GFS GRIB file
         run: |
           mkdir -p data
-          curl -o data/gfs_latest.grib "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.$(date -u +%Y%m%d)/00/atmos/gfs.t00z.pgrb2.0p25.f000"
+          cd data
+          # Güncel tarih ve saat için dosya URL'si
+          TODAY=$(date -u +%Y%m%d)
+          HOUR=18  # 00, 06, 12, 18 seçeneklerinden biri
+          URL="https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.${TODAY}/${HOUR}/atmos/gfs.t${HOUR}z.pgrb2.0p25.f000"
+          echo "Downloading $URL"
+          wget -O gfs_latest.grib $URL
 
-      - name: Generate forecast
+      - name: Run forecast script
         run: |
           python generate_forecast.py
 
-      - name: Commit updated forecast
+      - name: Commit forecast if CSV exists
+        if: success() && always() && (steps.run-forecast.outputs.file-exists == 'true' || true)
         run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add forecast_output.csv  # forecast dosyanın adı neyse onu yaz
-          git commit -m "Update forecast [skip ci]" || echo "No changes to commit"
-
-      - name: Push changes
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} HEAD:main
-
+          if [ -f "forecast_output.csv" ]; then
+            git config user.name "GitHub Actions"
+            git config user.email "actions@github.com"
+            git add forecast_output.csv
+            git commit -m "Update forecast output"
+            git push
+          else
+            echo "forecast_output.csv not found, skipping commit."
+          fi
