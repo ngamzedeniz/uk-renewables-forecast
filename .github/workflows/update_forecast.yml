@@ -18,6 +18,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          pip install --upgrade pip
           pip install requests pandas numpy xarray cfgrib
 
       - name: Run forecast script
@@ -28,5 +29,5 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add data/*.json
-          git commit -m "Update forecast data"
+          git diff --quiet && echo "No changes to commit" || git commit -m "Update forecast data"
           git push
