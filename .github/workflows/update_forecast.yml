@@ -1,35 +1,31 @@
 name: Update Forecast
 
-# Manuel tetikleme için
 on:
-  workflow_dispatch:   # Bu sayede "Run workflow" butonu ile manuel çalıştırılabilir
-  schedule:
-    - cron: '0 0 * * *'  # Her gün UTC 00:00'da otomatik çalışacak
+  workflow_dispatch:  # Manuel veya API ile tetikleme
 
 jobs:
-  update-json:
+  update-forecast:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
       - name: Install dependencies
         run: |
-          pip install xarray cfgrib numpy requests pandas
+          pip install requests pandas numpy xarray cfgrib
 
       - name: Run forecast script
         run: python generate_forecast.py
 
-      - name: Commit and push JSON
+      - name: Commit JSON updates
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add data/*.json
-          git commit -m "Update forecast JSON"
+          git commit -m "Update forecast data"
           git push
