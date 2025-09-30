@@ -1,33 +1,47 @@
 name: Update Forecast
 
 on:
-  workflow_dispatch:  # Manuel veya API ile tetikleme
+  workflow_dispatch:
+
+permissions:
+  contents: write  # Repo'ya push izni
 
 jobs:
-  update-forecast:
+  update_forecast:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install requests pandas numpy xarray cfgrib
+          python -m pip install --upgrade pip
+          pip install xarray cfgrib requests
 
-      - name: Run forecast script
-        run: python generate_forecast.py
+      - name: Download latest GFS GRIB
+        run: |
+          mkdir -p data
+          curl -o data/gfs_latest.grib "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.$(date -u +%Y%m%d)/00/atmos/gfs.t00z.pgrb2.0p25.f000"
 
-      - name: Commit JSON updates
+      - name: Generate forecast
+        run: |
+          python generate_forecast.py
+
+      - name: Commit updated forecast
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add data/*.json
-          git diff --quiet && echo "No changes to commit" || git commit -m "Update forecast data"
-          git push
+          git add forecast_output.csv  # forecast dosyanın adı neyse onu yaz
+          git commit -m "Update forecast [skip ci]" || echo "No changes to commit"
+
+      - name: Push changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} HEAD:main
+
