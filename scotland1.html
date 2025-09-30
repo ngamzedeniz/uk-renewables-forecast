@@ -2,98 +2,64 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Scotland Renewable + Price Forecast</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scotland Renewable Forecast</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-body { font-family: Arial, sans-serif; margin:0; padding:20px; background:#f5f5f5; }
-h1,h2 { text-align:center; }
-.container { display:flex; flex-wrap:wrap; justify-content: space-between; gap:20px; }
-.box { flex:1 1 45%; background:#fff; padding:15px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
-canvas { max-width:100%; height:300px; }
-@media (max-width:800px){
-  .box { flex:1 1 100%; }
-}
-p { font-style:italic; text-align:center; }
-footer { text-align:center; margin-top:20px; font-size:0.9em; color:#555; }
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  #container { display: flex; flex-wrap: wrap; }
+  #map, #charts { flex: 1; min-width: 300px; margin: 10px; }
+  canvas { max-width: 100%; height: auto; }
+  footer { margin-top: 20px; font-size: 0.9em; color: gray; }
 </style>
 </head>
 <body>
-
-<h1>Scotland Renewable + Price Forecast</h1>
-
-<div class="container">
-  <div class="box">
-    <h2>Solar & Wind Forecast</h2>
-    <canvas id="windSolarChart"></canvas>
-    <p id="wsInsight"></p>
+<h2>Scotland Renewable Forecast</h2>
+<div id="container">
+  <div id="map">
+    <iframe src="https://www.satellite-imagery-provider.com/embed/ISOC_MAP" width="100%" height="400"></iframe>
   </div>
-
-  <div class="box">
-    <h2>Price & Volume Forecast</h2>
-    <canvas id="pvChart"></canvas>
-    <p id="pvInsight"></p>
+  <div id="charts">
+    <canvas id="renewableChart"></canvas>
   </div>
 </div>
 
 <script>
-// JSON verilerini data klasöründen çek
-Promise.all([
-  fetch("data/scotland_forecast.json").then(res=>res.json()),
-  fetch("data/price_volume.json").then(res=>res.json())
-]).then(([gfsData, pvData])=>{
-  
-  // Wind & Solar grafiği
-  new Chart(document.getElementById("windSolarChart"),{
-    type:"line",
-    data:{
-      labels:gfsData.days,
-      datasets:[
-        {label:"Wind MW", data:gfsData.windMW, borderColor:"blue", backgroundColor:"rgba(0,0,255,0.1)", fill:true, tension:0.3},
-        {label:"Solar MW", data:gfsData.solarMW, borderColor:"orange", backgroundColor:"rgba(255,165,0,0.1)", fill:true, tension:0.3}
+async function loadData() {
+  const forecast = await fetch('data/scotland_forecast.json').then(r=>r.json());
+  const pv = await fetch('data/price_volume.json').then(r=>r.json());
+
+  const ctx = document.getElementById('renewableChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: forecast.days,
+      datasets: [
+        { label: 'Wind MW', data: forecast.windMW, backgroundColor: 'rgba(54,162,235,0.5)' },
+        { label: 'Solar MW', data: forecast.solarMW, backgroundColor: 'rgba(255,206,86,0.5)' },
+        { label: 'Price £/MWh', data: pv.price, type: 'line', borderColor: 'red', yAxisID: 'y1' },
+        { label: 'Volume MWh', data: pv.volume, type: 'line', borderColor: 'green', yAxisID: 'y1' }
       ]
     },
-    options:{
-      responsive:true,
-      plugins:{legend:{position:"top"}},
-      interaction:{mode:'index', intersect:false},
-      scales:{y:{beginAtZero:true, title:{display:true,text:"MW"}}}
-    }
-  });
-
-  document.getElementById("wsInsight").textContent = "High pressure → Solar high, Wind low.";
-
-  // Price & Volume grafiği
-  new Chart(document.getElementById("pvChart"),{
-    data:{
-      labels:pvData.days,
-      datasets:[
-        {type:"bar", label:"Volume (MWh)", data:pvData.volume, backgroundColor:"rgba(0,123,255,0.5)"},
-        {type:"line", label:"Price (£/MWh)", data:pvData.price, borderColor:"red", backgroundColor:"rgba(255,0,0,0.2)", yAxisID:"y1", tension:0.3}
-      ]
-    },
-    options:{
-      responsive:true,
-      interaction:{mode:"index",intersect:false},
-      scales:{
-        y:{type:"linear", position:"left", title:{display:true,text:"Volume (MWh)"}},
-        y1:{type:"linear", position:"right", title:{display:true,text:"Price (£/MWh)"}}
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      stacked: false,
+      scales: {
+        y: { beginAtZero:true, position: 'left', title: { display:true, text:'MW' } },
+        y1: { beginAtZero:true, position: 'right', title: { display:true, text:'Price / Volume' } }
       }
     }
   });
-
-  document.getElementById("pvInsight").textContent = "High wind → prices drop; Low renewables → prices rise.";
-
-}).catch(err=>{
-  console.error("Error loading JSON files:", err);
-});
+}
+loadData();
 </script>
 
 <footer>
-Sources: <a href="https://www.ncei.noaa.gov/products/weather-climate-models/global-forecast-system" target="_blank">GFS (NOAA)</a>,
-<a href="https://www.elexon.co.uk/" target="_blank">Elexon</a>.<br>
-Developed by <strong>Gamze DENİZ</strong> - <a href="https://github.com/ngamzedeniz" target="_blank">GitHub</a>.
+Data sources: <br>
+- GFS 0.25° (NOAA NOMADS) <br>
+- Price & Volume (Elexon Portal, scripting key) <br>
+Developer: Gamze DENİZ, <a href="https://github.com/ngamzedeniz">GitHub</a>
 </footer>
-
 </body>
 </html>
