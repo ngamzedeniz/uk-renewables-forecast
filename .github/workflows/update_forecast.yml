@@ -1,31 +1,32 @@
-name: UK Renewables Forecast
+name: Update Forecast
 
-# Manuel tetikleme için
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # Manuel veya API ile tetikleme
 
 jobs:
-  generate_forecast:
+  update-forecast:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Repo'yu klonla
+      - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Python kur
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Gereken paketleri kur
+      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install numpy pandas xarray cfgrib requests
+          pip install requests pandas numpy xarray cfgrib
 
-      - name: Forecast ve Price/Volume oluştur
-        run: |
-          python generate_forecast.py
+      - name: Run forecast script
+        run: python generate_forecast.py
 
-      - name: Oluşan JSON dosyalarını kontrol et
+      - name: Commit JSON updates
         run: |
-          ls -lh data/
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add data/*.json
+          git commit -m "Update forecast data"
+          git push
