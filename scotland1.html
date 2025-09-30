@@ -1,123 +1,72 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Scotland Renewable Forecast Dashboard</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 0; display: flex; flex-direction: row; height: 100vh; }
-    #map { width: 50%; height: 100%; }
-    #right { width: 50%; padding: 20px; display: flex; flex-direction: column; }
-    #right select { margin-bottom: 10px; padding: 5px; }
-    canvas { flex: 1; }
-    #insight { margin-top: 15px; font-weight: bold; }
-  </style>
+<meta charset="UTF-8">
+<title>Scotland Renewable Forecast</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body { font-family: Arial; max-width: 1200px; margin:auto; padding:20px; }
+.box { margin: 20px 0; padding:10px; border:1px solid #ccc; border-radius:5px; }
+h1,h2 { text-align:center; }
+canvas { max-width:100%; }
+</style>
 </head>
 <body>
 
-  <div id="map"></div>
-  <div id="right">
-    <h2>Scotland: Solar & Wind Forecast</h2>
-    <label for="satSelect">Choose satellite layer:</label>
-    <select id="satSelect">
-      <option value="MODIS_Terra_CorrectedReflectance_TrueColor">MODIS True Color</option>
-      <option value="VIIRS_SNPP_CorrectedReflectance_TrueColor">VIIRS True Color</option>
-      <option value="MODIS_Terra_CorrectedReflectance_Bands721">MODIS False Color (Bands 7-2-1)</option>
-    </select>
-    <canvas id="forecastChart"></canvas>
-    <div id="insight"></div>
-  </div>
+<h1>Scotland Renewable + Price Forecast</h1>
+
+<div class="box">
+  <h2>Solar & Wind Forecast</h2>
+  <canvas id="windSolarChart"></canvas>
+  <p id="wsInsight"></p>
+</div>
+
+<div class="box">
+  <h2>Price & Volume Forecast</h2>
+  <canvas id="pvChart"></canvas>
+  <p id="pvInsight"></p>
+</div>
 
 <script>
-// === Map ===
-const map = L.map('map').setView([56.5, -3], 6);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
-
-let satLayer;
-function updateSat(layerName) {
-  if (satLayer) map.removeLayer(satLayer);
-  const dateStr = new Date().toISOString().slice(0,10);
-  satLayer = L.tileLayer(
-    `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layerName}/default/${dateStr}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
-    { attribution: 'NASA GIBS' }
-  );
-  satLayer.addTo(map);
-}
-document.getElementById('satSelect').onchange = (e) => updateSat(e.target.value);
-updateSat(document.getElementById('satSelect').value);
-
-// === Fetch Data ===
-async function fetchForecast(lat, lon) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=shortwave_radiation,wind_speed_10m&forecast_days=1`;
-  const resp = await fetch(url);
-  return resp.json();
-}
-
-// === Chart + Insight ===
-async function loadForecast() {
-  const lat = 56.5, lon = -3;
-  const data = await fetchForecast(lat, lon);
-
-  const hours = data.hourly.time.map(t => t.slice(11,16));
-  const radiation = data.hourly.shortwave_radiation;
-  const wind = data.hourly.wind_speed_10m;
-
-  const ctx = document.getElementById('forecastChart').getContext('2d');
-  new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: hours,
-      datasets: [
-        {
-          label: 'Solar Radiation (W/m²)',
-          data: radiation,
-          borderColor: 'orange',
-          backgroundColor: 'rgba(255,165,0,0.2)',
-          yAxisID: 'y1',
-          fill: true
-        },
-        {
-          label: 'Wind Speed 10m (m/s)',
-          data: wind,
-          borderColor: 'blue',
-          backgroundColor: 'rgba(0,0,255,0.1)',
-          yAxisID: 'y2',
-          fill: true
-        }
+// JSON verilerini al ve grafikleri oluştur
+Promise.all([
+  fetch("scotland_forecast.json").then(res=>res.json()),
+  fetch("price_volume.json").then(res=>res.json())
+]).then(([gfsData, pvData])=>{
+  // Wind & Solar
+  new Chart(document.getElementById("windSolarChart"),{
+    type:"line",
+    data:{
+      labels:gfsData.days,
+      datasets:[
+        {label:"Wind MW", data:gfsData.windMW, borderColor:"blue", fill:false},
+        {label:"Solar MW", data:gfsData.solarMW, borderColor:"orange", fill:false}
       ]
     },
-    options: {
-      responsive: true,
-      interaction: { mode: 'index', intersect: false },
-      stacked: false,
-      scales: {
-        y1: { type: 'linear', position: 'left', title:{display:true,text:'Radiation (W/m²)'} },
-        y2: { type: 'linear', position: 'right', title:{display:true,text:'Wind (m/s)'} }
+    options:{responsive:true, plugins:{legend:{position:"top"}}}
+  });
+  document.getElementById("wsInsight").textContent = "High pressure → Solar high, Wind low.";
+
+  // Price & Volume
+  new Chart(document.getElementById("pvChart"),{
+    data:{
+      labels:pvData.days,
+      datasets:[
+        {type:"bar", label:"Volume (MWh)", data:pvData.volume, backgroundColor:"rgba(0,123,255,0.5)"},
+        {type:"line", label:"Price (£/MWh)", data:pvData.price, borderColor:"red", backgroundColor:"rgba(255,0,0,0.2)", yAxisID:"y1"}
+      ]
+    },
+    options:{
+      responsive:true,
+      interaction:{mode:"index",intersect:false},
+      scales:{
+        y:{type:"linear",position:"left",title:{display:true,text:"Volume (MWh)"}},
+        y1:{type:"linear",position:"right",title:{display:true,text:"Price (£/MWh)"}}
       }
     }
   });
-
-  // === Simple weather-style insight ===
-  const avgRad = radiation.reduce((a,b)=>a+b,0)/radiation.length;
-  const avgWind = wind.reduce((a,b)=>a+b,0)/wind.length;
-
-  let insight = "";
-  if (avgRad > 200 && avgWind < 3) {
-    insight = "☀ High pressure pattern: strong sunshine, weak winds.";
-  } else if (avgRad < 100 && avgWind > 6) {
-    insight = "🌬 Likely low pressure: windy, cloudy with poor solar output.";
-  } else {
-    insight = "⚖ Mixed conditions: balanced solar and wind contribution.";
-  }
-  document.getElementById('insight').innerText = insight;
-}
-
-loadForecast();
+  document.getElementById("pvInsight").textContent = "High wind → prices drop; Low renewables → prices rise.";
+});
 </script>
 
 </body>
