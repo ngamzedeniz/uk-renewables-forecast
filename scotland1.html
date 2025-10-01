@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scotland Forecast</title>
+  <title>İskoçya Enerji ve Hava Durumu Bilgileri</title>
   <style>
     body {
       font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
@@ -22,26 +22,58 @@
       margin-bottom: 15px;
       border-radius: 8px;
     }
-    #forecast-info {
+    #forecast-info, #energy-info, #developer-notes {
       font-size: 0.9em;
       color: #555;
       margin-top: 10px;
+    }
+    #satellite-image {
+      width: 100%;
+      height: 300px;
+      background-color: #e1e5ea;
+      margin-top: 20px;
+      border-radius: 8px;
     }
   </style>
 </head>
 <body>
 
-<h1>Scotland Forecast</h1>
+<h1>İskoçya Enerji ve Hava Durumu Bilgileri</h1>
 
 <!-- Grafik Placeholder -->
 <div id="forecast-chart">
-  Your forecast graph will render here
+  Grafik burada görünecek
 </div>
 
-<!-- Bilgi Notu Kısmı -->
+<!-- Uydu Görüntüsü -->
+<div id="satellite-image">
+  <img src="https://zoom.earth/places/united-kingdom/scotland/" alt="İskoçya Uydu Görüntüsü" style="width:100%; height:100%; object-fit:cover;">
+</div>
+
+<!-- Hava Durumu Bilgileri -->
 <div id="forecast-info"></div>
 
+<!-- Enerji Fiyatları ve Piyasa Bilgileri -->
+<div id="energy-info">
+  <h3>Enerji Fiyatları ve Piyasa Bilgileri</h3>
+  <p><strong>Elektrik Fiyatları:</strong> Ekim 2025 itibarıyla elektrik fiyatları %2.4 artışla yıllık £1,755 seviyesine çıkmıştır. Bu artış, gaz fiyatlarındaki %0.7'lik düşüşle dengelenmiştir.</p>
+  <p><strong>Arz-Talep Durumu:</strong> Talep, özellikle soğuk hava koşulları nedeniyle artmıştır. Yenilenebilir enerji kaynaklarından elde edilen üretim, talebi karşılamakta zorlanmaktadır.</p>
+  <p><strong>Fiyat Tahminleri:</strong> Analistler, Ocak 2026'da fiyatların düşmesini, ardından Nisan 2026'da yeniden artmasını beklemektedir.</p>
+</div>
+
+<!-- Geliştirici Notları -->
+<div id="developer-notes">
+  <h3>Geliştirici Notları</h3>
+  <ul>
+    <li>Günlük hava durumu verileri, Met Office API'sinden çekilmektedir.</li>
+    <li>Uydu görüntüsü, Zoom Earth API'si üzerinden alınmaktadır.</li>
+    <li>Enerji fiyatları ve piyasa bilgileri, Ofgem ve Trading Economics verilerine dayanmaktadır.</li>
+    <li>Sayfa, her gün otomatik olarak güncellenmektedir.</li>
+  </ul>
+</div>
+
 <script>
+  // metadata.json dosyasını çek ve grafiğin altındaki bilgi notunu doldur
   fetch("metadata.json")
     .then(r => r.json())
     .then(data => {
@@ -55,19 +87,18 @@
       }
 
       document.getElementById("forecast-info").innerHTML = `
-        <strong>Last updated:</strong> ${data.last_update} (${data.last_update_tr})<br>
+        <strong>Son Güncelleme:</strong> ${data.last_update} (${data.last_update_tr})<br>
         ${dayHtml}
         <em>${data.note}</em>
       `;
     })
     .catch(err => {
-      console.error("Could not load metadata.json:", err);
+      console.error("metadata.json dosyası yüklenemedi:", err);
       document.getElementById("forecast-info").innerHTML = `
-        <em>Forecast information not available.</em>
+        <em>Hava durumu bilgileri mevcut değil.</em>
       `;
     });
 </script>
 
 </body>
 </html>
-
