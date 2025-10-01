@@ -1,78 +1,46 @@
-# generate_forecast.py
-from datetime import datetime
 import xarray as xr
 import numpy as np
-import json
-import requests
 
 # İskoçya koordinatları
 lat_slice = slice(55.5, 58)
 lon_slice = slice(-3.5, -1)
 
-def get_gfs_latest_url():
+def find_variable(ds, candidates):
     """
-    Güncel GFS 0.25° yüzey verisinin URL'sini oluşturur.
+    Verilen DataSet içinde candidates listesinde bulunan ilk geçerli değişkeni döndürür.
     """
-    now = datetime.utcnow()
-    YYYYMMDD = now.strftime("%Y%m%d")
-    HH = str((now.hour // 6) * 6).zfill(2)  # En yakın 00, 06, 12, 18 saatleri
-    forecast_hour = "000"  # Analiz (f000)
-    url = (
-        f"https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/"
-        f"gfs.{YYYYMMDD}/{HH}/atmos/gfs.t{HH}z.pgrb2.0p25.f{forecast_hour}"
-    )
-    return url
+    for name in candidates:
+        if name in ds.variables:
+            return ds[name]
+    return None
 
-def download_grib(local_file="gfs_latest.grib"):
-    url = get_gfs_latest_url()
-    print(f"Downloading GFS file: {url}")
-    headers = {"User-Agent": "Mozilla/5.0"}  # 403 engelini aşmak için
-    r = requests.get(url, headers=headers)
-    if r.status_code == 200:
-        with open(local_file, "wb") as f:
-            f.write(r.content)
-        print("Download complete.")
-    else:
-        raise Exception(f"Failed to download GRIB file, status code: {r.status_code}")
-    return local_file
+def get_wind(ds_surface):
+    """
+    GRIB'den uygun u10/v10 değişkenlerini bulur ve rüzgar hızını hesaplar.
+    """
+    u_candidates = ['u10', '10u', '10m_u_component_of_wind', 'UGRD_10m_above_ground']
+    v_candidates = ['v10', '10v', '10m_v_component_of_wind', 'VGRD_10m_above_ground']
 
-def process_forecast(grib_file):
-    # Surface level verilerini aç
-    ds_surface = xr.open_dataset(grib_file, engine='cfgrib', filter_by_keys={'typeOfLevel': 'surface'})
+    u = find_variable(ds_surface, u_candidates)
+    v = find_variable(ds_surface, v_candidates)
 
-    # Rüzgar hızı (u10/v10) kontrolü
-    if 'u10' in ds_surface.variables and 'v10' in ds_surface.variables:
-        u10 = ds_surface['u10'].sel(latitude=lat_slice, longitude=lon_slice)
-        v10 = ds_surface['v10'].sel(latitude=lat_slice, longitude=lon_slice)
-        wind = np.sqrt(u10**2 + v10**2)
-    else:
-        raise KeyError("GRIB içinde u10/v10 bulunamadı!")
+    if u is None or v is None:
+        raise KeyError("GRIB içinde uygun rüzgar bileşenleri bulunamadı!")
 
-    # Kısa dalga radyasyonu (solar)
-    solar = ds_surface.get('dswrf', ds_surface.get('ssr'))
+    # İskoçya koordinatlarını seç
+    u_sel = u.sel(latitude=lat_slice, longitude=lon_slice)
+    v_sel = v.sel(latitude=lat_slice, longitude=lon_slice)
+
+    # Rüzgar hızını hesapla
+    wind = np.sqrt(u_sel**2 + v_sel**2)
+    return wind
+
+def get_solar(ds_surface):
+    """
+    GRIB'den kısa dalga radyasyonu değişkenini bulur.
+    """
+    solar_candidates = ['surface_downwelling_shortwave_radiation', 'DSWRF_surface']
+    solar = find_variable(ds_surface, solar_candidates)
     if solar is None:
-        raise KeyError("GRIB içinde kısa dalga radyasyonu bulunamadı!")
-    solar = solar.sel(latitude=lat_slice, longitude=lon_slice)
-
-    # Basit MW dönüşümü (örnek)
-    windMW = [int(np.mean(wind.isel(time=i).values)*100) for i in range(min(5, wind.sizes['time']))]
-    solarMW = [int(np.mean(solar.isel(time=i).values)/10) for i in range(min(5, solar.sizes['time']))]
-
-    # JSON kaydı
-    forecast = {
-        "days": ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5"],
-        "windMW": windMW,
-        "solarMW": solarMW
-    }
-
-    with open('data/scotland_forecast.json', 'w') as f:
-        json.dump(forecast, f)
-
-    print("Forecast JSON saved.")
-
-def main():
-    grib_file = download_grib()
-    process_forecast(grib_file)
-
-if __name__ == "__main__":
-    main()
+        raise KeyError("GRIB içinde uygun güneş radyasyonu bulunamadı!")
+    return solar.sel(latitude=lat_slice, longitude=lon_slice)
