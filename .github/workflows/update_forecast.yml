@@ -1,49 +1,43 @@
 name: Update Scotland Forecast
 
 on:
+  workflow_dispatch:  # Manuel tetikleme
   schedule:
-    - cron: "30 6 * * *"   # Every day at 06:30 UTC (09:30 TR)
-  workflow_dispatch:       # Manual trigger option
+    # Her gün UTC 06:30'da tetikleme (Türkiye saati 09:30)
+    - cron: '30 6 * * *'
 
 jobs:
-  update-forecast:
+  update_forecast:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          pip install --upgrade pip
+          pip install xarray cfgrib numpy requests
 
-      - name: Run forecast update
+      - name: Wait for GFS data availability
         run: |
-          TODAY=$(date -u +%Y%m%d)
-          echo "Downloading GFS for $TODAY 01Z..."
-          wget https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.${TODAY}/01/atmos/gfs.t01z.pgrb2.0p25.f000 -O gfs.t01z.f000
-          # Burada kendi forecast scriptini çalıştırıyorsun, örn:
-          # python scripts/update_forecast.py
+          echo "GFS data becomes available ~3–4 hours after 06:30 UTC."
+          echo "Sleeping 4 hours to ensure data is ready..."
+          sleep $((4*60*60))  # 4 saat bekle
 
-      - name: Create metadata
+      - name: Run Scotland Forecast
         run: |
-          TODAY=$(date -u +%Y%m%d)
-          UTC_TIME=$(date -u +"%Y-%m-%d %H:%M UTC")
-          TR_TIME=$(date -d "$UTC_TIME +3 hours" +"%Y-%m-%d %H:%M GMT+3")
-          
-          echo "{
-            \"last_update\": \"$UTC_TIME\",
-            \"last_update_tr\": \"$TR_TIME\",
-            \"cron_time\": \"06:30 UTC / 09:30 GMT+3\",
-            \"note\": \"Forecasts are updated daily at 06:30 UTC (09:30 GMT+3). GFS data becomes available ~3–4 hours after model run time.\"
-          }" > metadata.json
+          python generate_forecast.py
 
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add metadata.json
-          git commit -m "Update forecast metadata $UTC_TIME"
+      - name: Commit & push updated JSON
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add data/scotland_forecast.json data/price_volume.json
+          git commit -m "Update Scotland forecast" || echo "No changes to commit"
           git push
