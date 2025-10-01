@@ -26,11 +26,24 @@ jobs:
           TODAY=$(date -u +%Y%m%d)
           echo "Downloading GFS for $TODAY 01Z..."
           wget https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.${TODAY}/01/atmos/gfs.t01z.pgrb2.0p25.f000 -O gfs.t01z.f000
+          # Burada kendi forecast scriptini çalıştırıyorsun, örn:
+          # python scripts/update_forecast.py
 
-      - name: Commit and push results
+      - name: Create metadata
         run: |
+          TODAY=$(date -u +%Y%m%d)
+          UTC_TIME=$(date -u +"%Y-%m-%d %H:%M UTC")
+          TR_TIME=$(date -d "$UTC_TIME +3 hours" +"%Y-%m-%d %H:%M GMT+3")
+          
+          echo "{
+            \"last_update\": \"$UTC_TIME\",
+            \"last_update_tr\": \"$TR_TIME\",
+            \"cron_time\": \"06:30 UTC / 09:30 GMT+3\",
+            \"note\": \"Forecasts are updated daily at 06:30 UTC (09:30 GMT+3). GFS data becomes available ~3–4 hours after model run time.\"
+          }" > metadata.json
+
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add .
-          git commit -m "Update forecast for $TODAY"
+          git add metadata.json
+          git commit -m "Update forecast metadata $UTC_TIME"
           git push
