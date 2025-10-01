@@ -42,18 +42,21 @@
 <div id="forecast-info"></div>
 
 <script>
-  // metadata.json dosyasını çek ve grafiğin altındaki bilgi notunu doldur
   fetch("metadata.json")
     .then(r => r.json())
     .then(data => {
       const today = new Date(data.last_update);
-      const day1 = new Date(today);
-      const day2 = new Date(today); day2.setDate(today.getDate() + 1);
+      let dayHtml = '';
+      
+      for (let i = 1; i <= 7; i++) {
+        let d = new Date(today);
+        d.setDate(today.getDate() + (i - 1));
+        dayHtml += `<strong>Day ${i}:</strong> ${d.toDateString()}<br>`;
+      }
 
       document.getElementById("forecast-info").innerHTML = `
         <strong>Last updated:</strong> ${data.last_update} (${data.last_update_tr})<br>
-        <strong>Day 1:</strong> ${day1.toDateString()}<br>
-        <strong>Day 2:</strong> ${day2.toDateString()}<br>
+        ${dayHtml}
         <em>${data.note}</em>
       `;
     })
@@ -67,3 +70,4 @@
 
 </body>
 </html>
+
