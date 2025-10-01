@@ -1,65 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scotland Renewable Forecast</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-  body { font-family: Arial, sans-serif; margin: 20px; }
-  #container { display: flex; flex-wrap: wrap; }
-  #map, #charts { flex: 1; min-width: 300px; margin: 10px; }
-  canvas { max-width: 100%; height: auto; }
-  footer { margin-top: 20px; font-size: 0.9em; color: gray; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scotland Forecast</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin: 20px;
+      background-color: #f9f9f9;
+    }
+    #forecast-chart {
+      width: 100%;
+      height: 400px;
+      background-color: #e1e5ea;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #555;
+      font-size: 1.2em;
+      margin-bottom: 15px;
+      border-radius: 8px;
+    }
+    #forecast-info {
+      font-size: 0.9em;
+      color: #555;
+      margin-top: 10px;
+    }
+  </style>
 </head>
 <body>
-<h2>Scotland Renewable Forecast</h2>
-<div id="container">
-  <div id="map">
-    <iframe src="https://www.satellite-imagery-provider.com/embed/ISOC_MAP" width="100%" height="400"></iframe>
-  </div>
-  <div id="charts">
-    <canvas id="renewableChart"></canvas>
-  </div>
+
+<h1>Scotland Forecast</h1>
+
+<!-- Grafik Placeholder -->
+<div id="forecast-chart">
+  Your forecast graph will render here
 </div>
 
-<script>
-async function loadData() {
-  const forecast = await fetch('data/scotland_forecast.json').then(r=>r.json());
-  const pv = await fetch('data/price_volume.json').then(r=>r.json());
+<!-- Bilgi Notu Kısmı -->
+<div id="forecast-info"></div>
 
-  const ctx = document.getElementById('renewableChart').getContext('2d');
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: forecast.days,
-      datasets: [
-        { label: 'Wind MW', data: forecast.windMW, backgroundColor: 'rgba(54,162,235,0.5)' },
-        { label: 'Solar MW', data: forecast.solarMW, backgroundColor: 'rgba(255,206,86,0.5)' },
-        { label: 'Price £/MWh', data: pv.price, type: 'line', borderColor: 'red', yAxisID: 'y1' },
-        { label: 'Volume MWh', data: pv.volume, type: 'line', borderColor: 'green', yAxisID: 'y1' }
-      ]
-    },
-    options: {
-      responsive: true,
-      interaction: { mode: 'index', intersect: false },
-      stacked: false,
-      scales: {
-        y: { beginAtZero:true, position: 'left', title: { display:true, text:'MW' } },
-        y1: { beginAtZero:true, position: 'right', title: { display:true, text:'Price / Volume' } }
-      }
-    }
-  });
-}
-loadData();
+<script>
+  // metadata.json dosyasını çek ve grafiğin altındaki bilgi notunu doldur
+  fetch("metadata.json")
+    .then(r => r.json())
+    .then(data => {
+      const today = new Date(data.last_update);
+      const day1 = new Date(today);
+      const day2 = new Date(today); day2.setDate(today.getDate() + 1);
+
+      document.getElementById("forecast-info").innerHTML = `
+        <strong>Last updated:</strong> ${data.last_update} (${data.last_update_tr})<br>
+        <strong>Day 1:</strong> ${day1.toDateString()}<br>
+        <strong>Day 2:</strong> ${day2.toDateString()}<br>
+        <em>${data.note}</em>
+      `;
+    })
+    .catch(err => {
+      console.error("Could not load metadata.json:", err);
+      document.getElementById("forecast-info").innerHTML = `
+        <em>Forecast information not available.</em>
+      `;
+    });
 </script>
 
-<footer>
-Data sources: <br>
-- GFS 0.25° (NOAA NOMADS) <br>
-- Price & Volume (Elexon Portal, scripting key) <br>
-Developer: Gamze DENİZ, <a href="https://github.com/ngamzedeniz">GitHub</a>
-</footer>
 </body>
 </html>
