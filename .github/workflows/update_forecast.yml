@@ -2,34 +2,39 @@ name: Update Scotland Forecast
 
 on:
   schedule:
-    # Her gün Türkiye saati 13:30'da (UTC 10:30)
-    - cron: '30 10 * * *'
+    - cron: "30 6 * * *"   # Her gün 06:30 UTC (Türkiye saatiyle 09:30)
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.10"
 
       - name: Install dependencies
         run: |
-          pip install xarray cfgrib requests pandas matplotlib
+          python -m pip install --upgrade pip
+          pip install xarray cfgrib pandas numpy eccodes
+
+      - name: Download latest GFS
+        run: |
+          mkdir -p data
+          curl -o data/gfs_latest.grib "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.$(date -u +%Y%m%d)/00/atmos/gfs.t00z.pgrb2.0p25.f000"
 
       - name: Run forecast script
-        run: python generate_forecast.py
+        run: |
+          python generate_forecast.py data/gfs_latest.grib
 
-      - name: Commit forecast output
+      - name: Commit results
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
           git add forecast_output.csv
-          git commit -m "Update forecast data"
+          git commit -m "Update forecast_output.csv" || echo "No changes"
           git push
